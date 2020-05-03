@@ -1,0 +1,334 @@
+<!doctype html>
+<html>
+<head>
+    <title>Rest Countries API</title>
+
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="css/line-awesome.min.css">
+    <!-- Kube CSS -->
+    <link rel="stylesheet" href="css/kube.min.css">
+<style>
+:root {
+--dark-mode-elements: 	hsl(209, 23%, 22%);
+--dark-mode-background: hsl(207, 26%, 17%);
+--light-mode-text: 		hsl(200, 15%, 8%);
+--light-mode-input: 	hsl(0, 0%, 52%);        
+--light-mode-background: hsl(0, 0%, 98%);      
+--dark-mode-text: 		hsl(0, 0%, 100%);  
+--body-font:            'Nunito Sans', sans-serif;
+ }  
+
+body {font-family:var(--body-font) }
+body { background:var(--light-mode-background); color: var(--light-mode-text) }
+body.darkMode { background:var(--dark-mode-background); color: var(--dark-mode-text) }
+body {font-size:16px;}
+.details  { font-size: 75%!important;}
+.page {min-height:100vh;}
+i.la-3x { font-size: 3em!important;}
+.dark-mode { text-indent: 5em;  cursor: pointer!important;}
+.dark-mode span  { text-indent: 0; line-height: 1.5em}
+h1,h2,h3,h4,p,a {font-family:var(--body-font);}
+.header {padding:10px 40px;}
+.darkMode .header {border-bottom: 2px solid  var(--dark-mode-elements);}
+.card {padding:1rem}
+.darkMode .card { border: 3px solid  var(--dark-mode-elements)}
+.card .info h3 { cursor:pointer;}
+.card .info h4 {display: inline;}
+.is-country-facts ul.facts > li {float: left; width: 50%;}
+.is-country-facts ul.facts > li.borders {display:inline-block!important; width: 100%}
+.is-inline { display:inline-block!important;  margin-top: 28px!important;}
+.is-inline li {border: 1px solid var(--light-mode-input)!important; padding: 14px!important;  }
+ ul.is-inline li, a,a:active,a:visited,a:hover,a:focus, button.button, .button:hover,.button:active, .button:focus{ color:var(--light-mode-text)!important; text-decoration:none; background:var(--light-mode-background)!important;}
+ .darkMode ul.is-inline li,.darkMode input, .darkMode input:focus,  .darkMode a,.darkMode a:active,.darkMode a:visited,.darkMode a:hover,.darkMode a:focus, .darkMode button, .darkMode button.button, .darkMode .button:hover,.darkMode .button:active, .darkMode .button:focus{ color:var(--dark-mode-text)!important; text-decoration:none; background:var(--dark-mode-background)!important; border: 1px solid  var(--dark-mode-elements); padding-left: 1rem!important; padding-right: 1rem!important;}
+.darkMode ::placeholder{ color:var(--dark-mode-text)}
+.page {min-height: 100vh; position:relative;}
+.loader { display: flex; flex-direction: column; align-items: center; justify-content: center; position:absolute; z-index: 10; top:0; bottom:0; left:0; right:0; width: 100vw; height:100vh; background: rgba(255,255,255, .9);}
+
+.fade-enter-active, .fade-leave-active {
+  transition: opacity .5s
+}
+.fade-enter, .fade-leave-to /* .fade-leave-active below version 2.1.8 */ {
+  opacity: 0
+}
+@media only screen and (max-width: 768px) {
+.back { margin-left: 28px; max-width:112px;}
+}
+
+
+
+.bounce-enter-active {
+  animation: bounce-in .8s;
+}
+.bounce-leave-active {
+  animation: bounce-in .5s reverse;
+}
+@keyframes bounce-in {
+  0% {
+    transform: scale(0);
+  }
+  50% {
+    transform: scale(1.5);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+</style>
+</head>
+<body class ="body">
+    <div  id="app" class="page is-container-column is-centered">
+    <header class="header is-stack-20 is-shadow-1">
+    <div class="is-row is-stack-20"><div class="ïs-col is-60"><h1>Where in the world? <span v-if="details"> - {{ activeRegion}}</span> </h1></div><div class="is-col"><button @click="changeColor" class="dark-mode button is-tertiary is-big"><span><i class="la-3x lar la-moon"></i></span>DARK MODE</button></div></div>
+      </header>
+     
+    <main class="is-container is-90 is-center is-centered">
+      <div class="is-row" v-if="!details">
+      <div class="is-row is-stack-20 is-100"><div class="is-col is-70">
+        <is-search :countries ="countries"></is-search></div>
+          <div class="is-col"><is-dropdown :regions ='regions'></dropdown></div></div>
+
+<div v-if="loading" class="loader is-row"><img src="images/loader.gif" alt="loader"></div>
+<countries-list v-if="!loading" :countries = "countries"></countries-list>
+</div>
+<div class="is-row details" v-if ="details" transition name ="fade">
+<country-detail :countries="countries"></country-detail>
+</div>
+    </main>
+    <footer class="footer is-inset-40 is-stack-20 is-border-top">Coded by A.S.
+   </footer>
+    </div>
+    <!-- Kube JS (optional if you are using Kube CSS only) -->
+    <script src="js/kube.min.js"></script>
+    <script src="js/vue.min.js"></script>
+    <script src="js/axios.min.js"></script>
+    <script src="https://unpkg.com/vue-router/dist/vue-router.js"></script>
+    <script>
+      Vue.config.devtools = true;
+      $K.init({ observer:true});
+    </script>
+    <script>
+  
+const BaseUrl = 'https://restcountries.eu/rest/v2/all';
+const Regions = ["Africa", "Americas", "Asia", "Europe", "Oceania"];
+const initialPage = window.location.href.split("#")[0];
+
+ // Put Array into Chunks - gist
+ (function() { Array.prototype.chunk = function (chunkSize) { var n = this.length; if (chunkSize >= n) { return [this]; } if (n == 0) { return []; } var r = n % chunkSize; var q = (n - r) / chunkSize; var result = []; for (var i = 0; i <= q; i++) { result.push(this.slice(i * chunkSize, i * chunkSize + chunkSize)); } return result; }; })(); 
+  
+
+ let currentHash = window.location.hash;
+ window.onpopstate = function(event) {
+  console.log("location: " + document.location.hash + ", state: " + JSON.stringify(event.state));
+}
+
+
+// new code 
+let currentHash1 = window.location.hash; 
+window.addEventListener('popstate', function( event ) { if ( window.location.hash == currentHash1 ) { window.location.reload(); } 
+currentHash1 = window.location.hash; } ); 
+
+//start
+
+Vue.filter('format-thousands', function (value) {
+  //https://stackoverflow.com/a/2901298
+  return value.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+});
+Vue.component("countries-list", { 
+template:`<section>
+<div class= "is-row is-stack-20" v-for="set in countries.chunk(4)">
+<div :id ="country.name" class="is-col card is-shadow-2" v-for = "(country, index) in set" :country=country><img :src="country.flag"/>
+<div class="info is-border-top">
+    <ul class="facts is-unstyled">
+    <li><h3 :title ="country.name" :data-region = "country.region"  @click="vm.countrybyName(country.name, country.region)">{{country.name}}</h3></li>
+    <li><h4>Population:</h4><p>{{country.population | format-thousands}}</p></li>
+    <li><h4>Region:</h4><p>{{country.region}}</p></li>
+    <li><h4>Capital</h4><p>{{country.capital}}</p></li>
+     </ul>
+    </div></section>`,
+props:['countries'],
+
+
+methods:{
+
+}
+});
+
+Vue.component ("country-detail", {template:`<section>
+<div class="is-row is-stack-20 is-100"><a class = "back button is tertiary is big is-shadow-1" @click ="vm.goBack" :href="'#'+ vm.activeName"><span class="caret is-left"></span>&#8212;
+  Back</a></div>
+<div class="is-row facts is-inset-x-20" v-for="(country,index) in countries" :key = "country.alpha3Code" :country = "country">
+<div class="is-col"><img :src= "country.flag"/></div><div class="is-col is-country-facts"><h1 class="is-text-justify is-stack-20">{{country.name}} </h1>
+  <ul class = "facts is-unstyled"><li><h4>Native Name:</h4> <p>{{country.nativeName}}
+  </p></li><li><h4>Population:</h4><p>{{country.population | format-thousands}}</p></li><li><h4>Region:</h4> <p>{{country.region}}
+  </p></li><li><h4>Subregion:</h4><p>{{country.subregion}}</p></li><li class ="is-separator is-stack-20-mobile"><h4>Capital:</h4> <p>{{country.capital}}</p></li><li><h4>Top Level Domain:</h4><p>{{country.topLevelDomain.toString().replace("[",'')}}</p></li><li><h4>Currencies</h4> <p>{{country.currencies.map(e=>e.name).join(', ')}} </p></li><li><h4>Languages:</h4><p>{{country.languages.map(e=>e.name).join(', ')}}</p></li><li v-if="country.borders.length" class="borders"><h4>Border Countries:</h4><ul class="is-inline" v-for="border in country.borders" ><li class="button is-tertiary is-small" @click = "vm. countrybyName(... aCountry(border))" :data-region ="aCountry(border)[1]" :title = "aCountry(border)[0]" :code="border">{{aCountry(border)[0]}}</li></ul></li>
+</ul>
+</div>
+</div>
+</section>`,
+props: ['countries'],
+
+methods:{
+aCountry (code){
+let Thatcountry = vm.results.find(result=>result.alpha3Code === code ) 
+const namereg =[Thatcountry.name, Thatcountry.region];
+return namereg;
+}
+
+}
+
+
+});
+
+
+Vue.component("is-search",{
+template: `<div class="is-stack-20"><input v-on:keyup="countriesbySearch" v-model ="query" class="is-search is-80"  type="search" placeholder="Search..."/></div>`,
+props: ['countries'],
+data(){
+    return{
+        query : '',
+        regions : Regions,
+    }
+},
+
+methods: {
+countriesbySearch (){
+ const keys = ["name", "region", "capital"];
+ let lowSearch = this.query.toLowerCase();
+ //vm.activeRegion = this.regions.filter(region => region.includes(lowSearch));
+ vm.activeRegion = '*';
+ return vm.countries = this.countriesByS(lowSearch, keys); 
+
+
+ },
+ countriesByS (query, keys){
+  this.countries = vm.results;
+  let lowSearch = query.toLowerCase();
+  return this.countries.filter(function(country){
+  return keys.some( key => 
+  String(country[key]).toLowerCase().includes(lowSearch));
+    });
+ }
+ },
+});
+
+Vue.component("is-dropdown", {template: `
+<div class="is-stack-20">
+<button class="button is-tertiary is-shadow-1 is-big" data-kube = "dropdown" data-target="#dropdown">
+  Filter by Region
+    <span class="caret is-down"></span>
+</button>
+<div id="dropdown" class="dropdown is-hidden">
+  <a href="#" class='menu-item' v-for='region in regions' @click.prevent ='countriesbyRegion(region)'>{{region}}</a>
+  </div>
+
+           </div>`,
+props: ['regions'],
+data(){
+    return{
+        regions : Regions,
+    }
+},
+
+
+
+methods: {
+countriesbyRegion (region){
+//this.$emit("select-item", region);
+vm.activeRegion = region;
+return vm.countries = this.$parent.countriesBy(region, ['region']);
+}
+},
+})
+
+var vm = new Vue({
+el: '#app',
+ data: {
+regions: Regions,
+results:[],
+countries:[],
+sets:[],
+loading: true,
+query: '',
+activeRegion: "All",
+activeName:"",
+details:false,
+darkMode:false,
+  },
+
+
+watch: function(){
+let currenthash = decodeURI(window.location.href.split('#')[1]);
+if(vm.details && currenthash === vm.activeName)
+return vm.countries = this.countriesBy(name, ['name']);
+else
+return vm.countries = this.countriesBy(currenthash, ['name']);
+}, 
+
+
+mounted: function() {
+this.fetchCountries();
+  },
+
+methods:{ 
+  fetchCountries () {
+    axios.get(BaseUrl)
+    .then(function (response) {
+    vm.loading = false;
+    vm.results = response.data;
+    vm.countries = vm.results;
+    vm.bordercountries =vm.results;
+    vm.initialPage = location.pathname;
+    }
+	).catch(function (error) {
+      console.log(error);
+    });
+  },
+  countriesBy (query, keys){
+  this.countries = vm.results;
+  let lowSearch = query.toLowerCase();
+  return this.countries.filter(function(country){
+  return keys.some( key => 
+  String(country[key]).toLowerCase()===lowSearch);
+    });
+ }, 
+
+
+goBack (){
+vm.countries = vm.results
+vm.details = false;
+vm.activeName = "";
+vm.activeRegion ="All";
+location.replace(initialPage);
+},
+
+
+changeColor (){
+document.body.classList.toggle('darkMode')
+},
+
+
+
+countrybyName(name, region){
+//this.$emit("select-item", region);
+//let name = e.currentTarget.getAttribute('title');
+vm.activeName  = name;
+vm.activeRegion = region;
+vm.details = true;
+this.changeRoute(name);
+return vm.countries = this.countriesBy(name, ['name']);
+},
+
+changeRoute (name){
+let route = (vm.details) ? initialPage + "#" + name : initialPage ;
+location.replace(route);
+window.history.pushState({'country': name}, name, route);
+},
+}
+
+
+})
+</script>
+</body>
+</html>
